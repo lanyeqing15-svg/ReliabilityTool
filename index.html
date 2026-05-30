@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>可靠性试验方案设计器 · Arrhenius / Coffin-Manson / Peck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0d0f12;
+    --panel:#15181d;
+    --panel-2:#1b1f26;
+    --line:#272c34;
+    --line-soft:#20242b;
+    --ink:#e8ecf1;
+    --ink-dim:#8b94a3;
+    --ink-faint:#5a626f;
+    --signal:#37e1b0;
+    --signal-soft:#1c5a48;
+    --amber:#f5a623;
+    --amber-soft:#5a4317;
+    --accent:#5b9cff;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg);color:var(--ink);
+    font-family:'Schibsted Grotesk',sans-serif;line-height:1.5;
+    background-image:
+      radial-gradient(circle at 15% 0%,rgba(55,225,176,.05),transparent 40%),
+      radial-gradient(circle at 85% 100%,rgba(91,156,255,.05),transparent 45%);
+    background-attachment:fixed;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:80px;
+  }
+  .mono{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums}
+
+  /* header */
+  header{max-width:1120px;margin:0 auto;padding:36px 28px 24px;border-bottom:1px solid var(--line)}
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--signal);margin-bottom:14px;
+    display:flex;align-items:center;gap:10px;
+  }
+  .eyebrow::before{content:"";width:26px;height:1px;background:var(--signal);display:inline-block}
+  h1{font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
+  h1 span{color:var(--ink-dim);font-weight:400}
+  .sub{color:var(--ink-dim);font-size:15px;margin-top:10px;max-width:620px}
+  .verified{
+    display:inline-flex;align-items:center;gap:7px;margin-top:16px;
+    font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-faint);
+    border:1px solid var(--line);border-radius:100px;padding:5px 12px;
+  }
+  .verified .dot{width:7px;height:7px;border-radius:50%;background:var(--signal);box-shadow:0 0 8px var(--signal)}
+
+  /* layout */
+  main{max-width:1120px;margin:0 auto;padding:28px;display:grid;grid-template-columns:1fr 1fr;gap:24px}
+  @media(max-width:860px){main{grid-template-columns:1fr;padding:20px}h1{font-size:24px}}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .card-head{
+    padding:16px 20px;border-bottom:1px solid var(--line-soft);
+    display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+  }
+  .card-head h2{font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+  .card-head .idx{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-faint)}
+  .card-body{padding:20px}
+
+  /* inputs */
+  .field{margin-bottom:18px}
+  .field:last-child{margin-bottom:0}
+  label{display:block;font-size:13px;color:var(--ink-dim);margin-bottom:7px;font-weight:500}
+  label .unit{color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:11px;margin-left:4px}
+  .inrow{display:flex;gap:10px}
+  input[type=number],select{
+    width:100%;background:var(--bg);border:1px solid var(--line);border-radius:7px;
+    color:var(--ink);padding:11px 13px;font-family:'JetBrains Mono',monospace;font-size:15px;
+    transition:border-color .15s,box-shadow .15s;
+  }
+  input[type=number]:focus,select:focus{outline:none;border-color:var(--signal);box-shadow:0 0 0 3px rgba(55,225,176,.12)}
+  select{cursor:pointer;appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238b94a3' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 13px center;padding-right:32px}
+  .hint{font-size:11px;color:var(--ink-faint);margin-top:6px;line-height:1.4}
+  .seg{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .seg button{flex:1;background:var(--bg);border:none;color:var(--ink-dim);padding:10px;font-size:13px;cursor:pointer;font-family:inherit;transition:.15s}
+  .seg button.on{background:var(--signal-soft);color:var(--signal)}
+
+  /* model tabs */
+  .model-tabs{
+    grid-column:1/-1;
+    display:flex;gap:4px;
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:6px;
+  }
+  .model-tab{
+    flex:1;background:transparent;border:none;border-radius:7px;
+    color:var(--ink-dim);padding:10px 14px;cursor:pointer;
+    font-family:inherit;font-size:13px;font-weight:500;
+    transition:.15s;line-height:1.35;text-align:center;
+  }
+  .model-tab:hover{background:var(--panel-2)}
+  .model-tab.on{background:var(--signal-soft);color:var(--signal)}
+  .model-tab .msub{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);margin-top:2px;letter-spacing:.05em}
+  .model-tab.on .msub{color:var(--signal);opacity:.7}
+  .model-panel.hidden{display:none}
+
+  /* readout */
+  .readout{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line-soft);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:4px}
+  .ro{background:var(--panel-2);padding:16px 18px}
+  .ro .k{font-size:11px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+  .ro .v{font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:500;color:var(--signal);line-height:1}
+  .ro .v small{font-size:13px;color:var(--ink-dim);font-weight:400}
+  .ro.full{grid-column:1/-1}
+  .ro.warn .v{color:var(--amber)}
+
+  /* conclusion */
+  .conclusion{
+    grid-column:1/-1;background:var(--panel);border:1px solid var(--signal-soft);
+    border-radius:var(--radius);padding:22px 24px;position:relative;overflow:hidden;
+  }
+  .conclusion::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--signal)}
+  .conclusion .lab{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--signal);margin-bottom:12px}
+  .conclusion p{font-size:16px;line-height:1.65;color:var(--ink)}
+  .conclusion b{color:var(--signal);font-family:'JetBrains Mono',monospace;font-weight:500}
+  .conclusion .why{margin-top:14px;padding-top:14px;border-top:1px solid var(--line-soft);font-size:13px;color:var(--ink-dim);line-height:1.6}
+
+  /* trade-off matrix */
+  .matrix{grid-column:1/-1}
+  table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace}
+  th,td{padding:13px 16px;text-align:right;font-size:14px;border-bottom:1px solid var(--line-soft)}
+  th{color:var(--ink-faint);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.06em;text-align:right}
+  th:first-child,td:first-child{text-align:left}
+  tbody tr{transition:background .15s}
+  tbody tr:hover{background:var(--panel-2)}
+  td.hl{color:var(--signal)}
+  .tag{display:inline-block;font-size:10px;padding:2px 8px;border-radius:100px;letter-spacing:.04em;vertical-align:middle;margin-left:8px}
+  .tag.base{background:var(--signal-soft);color:var(--signal)}
+  .tag.warn{background:var(--amber-soft);color:var(--amber)}
+  .matrix .note{padding:14px 20px;font-size:12px;color:var(--ink-faint);border-top:1px solid var(--line-soft);line-height:1.5}
+
+  /* slider */
+  .slider-row{display:flex;align-items:center;gap:16px;padding:18px 20px;border-bottom:1px solid var(--line-soft)}
+  .slider-row label{margin:0;white-space:nowrap;min-width:120px}
+  input[type=range]{flex:1;-webkit-appearance:none;height:4px;background:var(--line);border-radius:2px;outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--signal);cursor:pointer;box-shadow:0 0 10px rgba(55,225,176,.5)}
+  input[type=range]::-moz-range-thumb{width:18px;height:18px;border:none;border-radius:50%;background:var(--signal);cursor:pointer}
+  .slider-val{font-family:'JetBrains Mono',monospace;color:var(--signal);min-width:80px;text-align:right;font-size:15px}
+
+  footer{max-width:1120px;margin:28px auto 0;padding:0 28px;color:var(--ink-faint);font-size:12px;line-height:1.7}
+  footer .disclaimer{border:1px solid var(--line);border-radius:8px;padding:16px 18px;background:var(--panel)}
+  footer a{color:var(--accent);text-decoration:none}
+
+  .hook{
+    grid-column:1/-1;background:linear-gradient(110deg,var(--panel-2),var(--panel));
+    border:1px dashed var(--line);border-radius:var(--radius);padding:22px 24px;
+    display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;
+  }
+  .hook .t{font-size:15px;color:var(--ink)}
+  .hook .t b{color:var(--signal)}
+  .hook .e{font-size:13px;color:var(--ink-dim);margin-top:4px}
+  .hook-form{display:flex;gap:8px}
+  .hook-form input{background:var(--bg);border:1px solid var(--line);border-radius:7px;color:var(--ink);padding:10px 13px;font-size:14px;font-family:inherit;width:200px;transition:border-color .15s}
+  .hook-form button{background:var(--signal);color:#0d0f12;border:none;border-radius:7px;padding:10px 18px;font-weight:600;cursor:pointer;font-family:inherit;font-size:14px;transition:.15s}
+  .hook-form button:hover:not(:disabled){filter:brightness(1.1)}
+  .hook-form button:disabled{opacity:.6;cursor:default}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Reliability Test Designer · v0.2</div>
+  <h1>可靠性试验方案设计器<span> / 加速试验</span></h1>
+  <p class="sub">输入产品的使用环境与可靠性目标，立即得到加速因子、等效试验时长与所需样本量——并通过权衡矩阵，看清「样品数 × 试验时长 × 应力 × 置信度」之间的取舍。</p>
+  <div class="verified"><span class="dot"></span> 全部公式经教科书案例校验 · Arrhenius · Coffin-Manson · Peck / Weibull 零失效</div>
+</header>
+
+<main>
+  <!-- Model selector -->
+  <div class="model-tabs">
+    <button class="model-tab on" data-model="arrhenius" onclick="switchModel('arrhenius')">
+      Arrhenius
+      <span class="msub">高温老化</span>
+    </button>
+    <button class="model-tab" data-model="cm" onclick="switchModel('cm')">
+      Coffin-Manson
+      <span class="msub">温度循环</span>
+    </button>
+    <button class="model-tab" data-model="peck" onclick="switchModel('peck')">
+      Peck
+      <span class="msub">温湿度加速</span>
+    </button>
+  </div>
+
+  <!-- INPUT: Arrhenius (高温) -->
+  <section class="card model-panel" data-model="arrhenius">
+    <div class="card-head"><h2>① 应力与环境</h2><span class="idx">ARRHENIUS</span></div>
+    <div class="card-body">
+      <div class="field">
+        <label>激活能 Ea<span class="unit">eV</span></label>
+        <input type="number" id="ea" value="0.7" step="0.05" min="0.1" max="2">
+        <div class="hint">常见参考：氧化层失效 ~0.3–0.5 · 金属化/电迁移 ~0.6–0.9 · 焊点/界面 ~0.7–1.1。不确定时取 0.7 偏保守。</div>
+      </div>
+      <div class="field">
+        <label>使用温度 T<sub>use</sub><span class="unit">°C</span></label>
+        <input type="number" id="tuse" value="40" step="1">
+      </div>
+      <div class="field">
+        <label>试验温度 T<sub>stress</sub><span class="unit">°C</span></label>
+        <input type="number" id="tstress" value="125" step="1">
+        <div class="hint" id="tempHint">提高试验温度可缩短时间，但不得超过材料/器件上限（如塑封件常 ≤150°C）。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INPUT: Coffin-Manson (温度循环) -->
+  <section class="card model-panel hidden" data-model="cm">
+    <div class="card-head"><h2>① 温度循环应力</h2><span class="idx">COFFIN-MANSON</span></div>
+    <div class="card-body">
+      <div class="field">
+        <label>现场温度摆幅 ΔT<sub>use</sub><span class="unit">°C</span></label>
+        <input type="number" id="cm_dtu" value="20" step="1" min="1">
+        <div class="hint">典型值：室内电子 10–30°C · 车载 40–60°C · 工业 30–50°C。</div>
+      </div>
+      <div class="field">
+        <label>试验温度摆幅 ΔT<sub>stress</sub><span class="unit">°C</span></label>
+        <input type="number" id="cm_dts" value="63" step="1" min="1">
+        <div class="hint" id="cmHint">常见试验条件：-40→+65°C（ΔT=105）· 0→+63°C（ΔT=63，AF≈9.9）· -55→+125°C（ΔT=180，高应力）。</div>
+      </div>
+      <div class="field">
+        <label>Coffin-Manson 指数 q</label>
+        <input type="number" id="cm_q" value="2.0" step="0.1" min="0.5" max="5">
+        <div class="hint">参考值：锡铅焊点 ~1.9–2.0 · 无铅焊点 ~1.9–2.5 · BGA/CSP ~2–3。不确定取 2.0。</div>
+      </div>
+      <div class="field">
+        <label>现场日循环次数<span class="unit">次/天</span></label>
+        <input type="number" id="cm_cpd" value="1" step="0.5" min="0.1">
+        <div class="hint">开关机 1 次/天 → 填 1；设备 8 次/天 → 填 8。与上方「寿命」组合算出现场总循环数。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INPUT: Peck (温湿度) -->
+  <section class="card model-panel hidden" data-model="peck">
+    <div class="card-head"><h2>① 温湿度应力</h2><span class="idx">PECK MODEL</span></div>
+    <div class="card-body">
+      <div class="field">
+        <div class="inrow">
+          <div style="flex:1">
+            <label>使用温度 T<sub>use</sub><span class="unit">°C</span></label>
+            <input type="number" id="pk_tu" value="25" step="1">
+          </div>
+          <div style="flex:1">
+            <label>试验温度 T<sub>stress</sub><span class="unit">°C</span></label>
+            <input type="number" id="pk_ts" value="85" step="1">
+          </div>
+        </div>
+        <div class="hint" id="peckTempHint">HAST 标准试验条件：85°C / 85%RH（≤130°C 以免封装开裂）。</div>
+      </div>
+      <div class="field">
+        <div class="inrow">
+          <div style="flex:1">
+            <label>使用湿度 RH<sub>use</sub><span class="unit">%</span></label>
+            <input type="number" id="pk_rhu" value="50" step="1" min="1" max="99">
+          </div>
+          <div style="flex:1">
+            <label>试验湿度 RH<sub>stress</sub><span class="unit">%</span></label>
+            <input type="number" id="pk_rhs" value="85" step="1" min="1" max="100">
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <div class="inrow">
+          <div style="flex:1">
+            <label>激活能 Ea<span class="unit">eV</span></label>
+            <input type="number" id="pk_ea" value="0.9" step="0.05" min="0.1" max="2">
+          </div>
+          <div style="flex:1">
+            <label>Peck 指数 n</label>
+            <input type="number" id="pk_n" value="2.7" step="0.1" min="0.5" max="5">
+          </div>
+        </div>
+        <div class="hint">Peck (1986) 原始值：Ea=0.79 eV，n=2.66。多数工业场景取 Ea≈0.9，n≈2.7。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INPUT: 寿命与可靠性目标 (共用) -->
+  <section class="card">
+    <div class="card-head"><h2>② 寿命与可靠性目标</h2><span class="idx">TARGET</span></div>
+    <div class="card-body">
+      <div class="field">
+        <label>目标现场寿命</label>
+        <div class="inrow">
+          <input type="number" id="life" value="10" step="0.5" min="0.1">
+          <div class="seg" id="lifeUnit" style="min-width:150px">
+            <button data-u="year" class="on">年</button>
+            <button data-u="hour">小时</button>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label>目标可靠度 R<span class="unit">%</span></label>
+        <input type="number" id="rel" value="95" step="1" min="50" max="99.99">
+        <div class="hint">在目标寿命末期，仍正常工作的产品比例。</div>
+      </div>
+      <div class="field">
+        <label>置信度 C<span class="unit">%</span></label>
+        <input type="number" id="conf" value="90" step="1" min="50" max="99">
+      </div>
+      <div class="field">
+        <label>Weibull 形状参数 β</label>
+        <input type="number" id="beta" value="2.0" step="0.1" min="0.5" max="6">
+        <div class="hint">β=1 随机失效 · β&gt;1 磨损型失效（多数加速试验场景）· 不确定取 2。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- READOUTS -->
+  <section class="card" style="grid-column:1/-1">
+    <div class="card-head"><h2>③ 计算结果</h2><span class="idx">LIVE READOUT</span></div>
+    <div class="card-body">
+      <div class="readout">
+        <div class="ro"><div class="k">加速因子 AF</div><div class="v mono" id="roAF">—</div></div>
+        <div class="ro" id="roDemoCell">
+          <div class="k" id="roDemoK">等效试验时长（基准）</div>
+          <div class="v mono" id="roDemo">—<small id="roDemoUnit"> h</small></div>
+        </div>
+        <div class="ro"><div class="k">所需样本量（零失效）</div><div class="v mono" id="roN">—<small> 件</small></div></div>
+        <div class="ro">
+          <div class="k" id="roFieldK">现场寿命换算</div>
+          <div class="v mono" id="roField">—<small id="roFieldUnit"> h</small></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONCLUSION -->
+  <div class="conclusion">
+    <div class="lab">方案结论 · 人话版</div>
+    <p id="conclusionText">填写左侧参数后，这里生成可直接写进试验计划的结论。</p>
+    <div class="why" id="whyText"></div>
+  </div>
+
+  <!-- TRADE-OFF MATRIX -->
+  <section class="card matrix">
+    <div class="card-head"><h2>④ 权衡矩阵 — 同一目标的多种可行方案</h2><span class="idx">TRADE-OFF</span></div>
+    <div class="slider-row">
+      <label>试验时长倍率</label>
+      <input type="range" id="mult" min="0.5" max="3" step="0.1" value="1.5">
+      <span class="slider-val mono" id="multVal">×1.5</span>
+    </div>
+    <table>
+      <thead><tr id="matrixHead">
+        <th>方案</th><th>样品数</th><th>试验时长</th><th>试验温度</th><th>置信度</th>
+      </tr></thead>
+      <tbody id="matrixBody"></tbody>
+    </table>
+    <div class="note" id="matrixNote">同一可靠性目标可由不同 (样品数 × 时长 × 温度) 组合达成。延长试验时间 → 可减少样品；提高应力 → 可缩短时间但接近材料上限有风险（<span style="color:var(--amber)">琥珀色</span>）。</div>
+  </section>
+
+  <!-- EMAIL HOOK -->
+  <div class="hook">
+    <div>
+      <div class="t">想让系统根据<b>整个产品</b>自动生成完整试验方案？</div>
+      <div class="e">输入产品类型与目标市场，自动推荐试验项目清单、适用标准与每项的理由 —— 即将上线。</div>
+    </div>
+    <div class="hook-form">
+      <input type="email" id="emailHook" placeholder="留个邮箱，上线通知你">
+      <button id="emailBtn" onclick="captureEmail()">通知我</button>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="disclaimer">
+    <strong style="color:var(--ink-dim)">关于本工具的定位：</strong>
+    这是面向研发工程师的<b style="color:var(--ink)">工程决策支持工具</b>，帮助快速设计加速试验方案。
+    输出基于通用可靠性物理模型与统计方法，结果质量取决于输入参数（尤其是失效机理与模型系数的判断）。
+    它不替代具备资质的可靠性工程评审，也不构成质量保证或合规承诺。关键决策请结合实际失效机理与实验室专业意见。
+  </div>
+</footer>
+
+<script>
+const kB = 8.617333e-5;
+const $ = id => document.getElementById(id);
+let lifeUnit = 'year';
+let activeModel = 'arrhenius';
+
+// ---- core formulas ----
+const C2K = c => c + 273.15;
+
+function arrheniusAF(Ea, TuC, TsC) {
+  return Math.exp((Ea / kB) * (1 / C2K(TuC) - 1 / C2K(TsC)));
+}
+
+function coffinMansonAF(deltaU, deltaS, q) {
+  return Math.pow(deltaS / deltaU, q);
+}
+
+function peckAF(Ea, n, TuC, TsC, RHu, RHs) {
+  return Math.pow(RHs / RHu, n) * Math.exp((Ea / kB) * (1 / C2K(TuC) - 1 / C2K(TsC)));
+}
+
+function sampleSizeZeroFail(R, C) {
+  return Math.log(1 - C) / Math.log(R);
+}
+
+function sampleWeibull(R, C, beta, ratio) {
+  return Math.log(1 - C) / (Math.pow(ratio, beta) * Math.log(R));
+}
+
+function fmt(x, d = 0) {
+  return x.toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: 0 });
+}
+
+// ---- model switching ----
+function switchModel(model) {
+  activeModel = model;
+  document.querySelectorAll('.model-panel').forEach(p => {
+    p.classList.toggle('hidden', p.dataset.model !== model);
+  });
+  document.querySelectorAll('.model-tab').forEach(t => {
+    t.classList.toggle('on', t.dataset.model === model);
+  });
+  compute();
+}
+
+// ---- main compute dispatcher ----
+function compute() {
+  const life = +$('life').value;
+  const R = +$('rel').value / 100;
+  const C = +$('conf').value / 100;
+  const beta = +$('beta').value;
+  const fieldHours = lifeUnit === 'year' ? life * 8760 : life;
+  const nBase = Math.ceil(sampleSizeZeroFail(R, C));
+
+  if (activeModel === 'arrhenius') computeArrhenius(life, fieldHours, R, C, beta, nBase);
+  else if (activeModel === 'cm')   computeCM(life, fieldHours, R, C, beta, nBase);
+  else if (activeModel === 'peck') computePeck(life, fieldHours, R, C, beta, nBase);
+}
+
+// ---- Arrhenius ----
+function computeArrhenius(life, fieldHours, R, C, beta, nBase) {
+  const Ea = +$('ea').value, TuC = +$('tuse').value, TsC = +$('tstress').value;
+  const AF = arrheniusAF(Ea, TuC, TsC);
+  const tDemo = fieldHours / AF;
+  const mult = +$('mult').value;
+
+  const overLimit = TsC > 150;
+  $('tempHint').innerHTML = overLimit
+    ? '<span style="color:var(--amber)">⚠ 试验温度已超过 150°C，多数塑封器件不可承受，请核查器件耐温规格。</span>'
+    : '提高试验温度可缩短时间，但不得超过材料/器件上限（如塑封件常 ≤150°C）。';
+
+  setReadouts(AF, fmt(tDemo, 0), ' h', nBase, fmt(fieldHours, 0), ' h',
+    '等效试验时长（基准）', '现场寿命换算', overLimit);
+
+  $('conclusionText').innerHTML =
+    `取 <b>${nBase} 件</b>样品，在 <b>${TsC}°C</b> 下连续运行 <b>${fmt(tDemo, 0)} 小时</b>，` +
+    `若全程<b>零失效</b>，即可在 <b>${$('conf').value}% 置信度</b>下证明：` +
+    `产品在 <b>${TuC}°C</b> 使用环境、` +
+    `<b>${lifeUnit === 'year' ? life + ' 年' : fmt(fieldHours, 0) + ' 小时'}</b> 寿命点的可靠度 <b>≥ ${$('rel').value}%</b>。`;
+
+  $('whyText').innerHTML =
+    `加速因子 AF=${AF >= 10 ? fmt(AF, 0) : fmt(AF, 1)} 来自 Arrhenius 模型（Ea=${Ea} eV，${TuC}°C→${TsC}°C），` +
+    `将 ${fmt(fieldHours, 0)} h 现场寿命压缩为 ${fmt(tDemo, 0)} h；` +
+    `样本量 ${nBase} 件由成功运行定理 n=ln(1−C)/ln(R) 得出。`;
+
+  // matrix
+  const nLong = Math.ceil(sampleWeibull(R, C, beta, mult));
+  const TsHot = TsC + 15;
+  const AFhot = arrheniusAF(Ea, TuC, TsHot);
+  const hotWarn = TsHot > 150;
+  const rows = [
+    { name: 'A · 基准', tag: '<span class="tag base">推荐起点</span>', n: nBase, t: fmt(tDemo, 0) + ' h', stress: TsC + '°C', warn: overLimit },
+    { name: 'B · 延长时间换样品', tag: '', n: nLong, t: fmt(tDemo * mult, 0) + ' h', stress: TsC + '°C', warn: false },
+    { name: 'C · 升温换时间', tag: hotWarn ? '<span class="tag warn">超温风险</span>' : '', n: nBase, t: fmt(fieldHours / AFhot, 0) + ' h', stress: TsHot + '°C', warn: hotWarn },
+  ];
+  $('matrixHead').innerHTML = '<th>方案</th><th>样品数</th><th>试验时长</th><th>试验温度</th><th>置信度</th>';
+  $('matrixNote').innerHTML = '同一可靠性目标可由不同 (样品数 × 时长 × 温度) 组合达成。延长时间 → 减少样品；升温 → 缩短时间但接近材料上限有风险（<span style="color:var(--amber)">琥珀色</span>）。';
+  renderMatrixRows(rows, $('conf').value + '%');
+}
+
+// ---- Coffin-Manson ----
+function computeCM(life, fieldHours, R, C, beta, nBase) {
+  const dTu = +$('cm_dtu').value, dTs = +$('cm_dts').value;
+  const q = +$('cm_q').value, cpd = +$('cm_cpd').value;
+  const AF = coffinMansonAF(dTu, dTs, q);
+  const fieldCycles = Math.round((fieldHours / 24) * cpd);
+  const testCycles = Math.max(1, Math.round(fieldCycles / AF));
+  const mult = +$('mult').value;
+
+  const overLimit = dTs > 150;
+  $('cmHint').innerHTML = overLimit
+    ? '<span style="color:var(--amber)">⚠ 试验温度摆幅超过 150°C，请核查试验设备与器件耐温能力。</span>'
+    : '常见试验条件：-40→+65°C（ΔT=105）· 0→+63°C（ΔT=63，AF≈9.9）· -55→+125°C（ΔT=180，高应力）。';
+
+  setReadouts(AF, fmt(testCycles, 0), ' 次', nBase, fmt(fieldCycles, 0), ' 次',
+    '等效试验循环次数', '现场总循环次数', overLimit);
+
+  $('conclusionText').innerHTML =
+    `取 <b>${nBase} 件</b>样品，在温度摆幅 <b>ΔT=${dTs}°C</b> 的循环应力下完成 <b>${fmt(testCycles, 0)} 个循环</b>，` +
+    `若全程<b>零失效</b>，即可在 <b>${$('conf').value}% 置信度</b>下证明：` +
+    `产品在 ΔT=${dTu}°C 现场循环、` +
+    `<b>${lifeUnit === 'year' ? life + ' 年' : fmt(fieldHours, 0) + ' 小时'}</b>（共 ${fmt(fieldCycles, 0)} 次循环）寿命点的可靠度 <b>≥ ${$('rel').value}%</b>。`;
+
+  $('whyText').innerHTML =
+    `加速因子 AF=${AF >= 10 ? fmt(AF, 0) : fmt(AF, 1)} 来自 Coffin-Manson 模型：AF=(ΔT_s/ΔT_u)^q=(${dTs}/${dTu})^${q}，` +
+    `将 ${fmt(fieldCycles, 0)} 次现场循环压缩为 ${fmt(testCycles, 0)} 次试验循环；` +
+    `样本量 ${nBase} 件由成功运行定理得出。`;
+
+  const nLong = Math.ceil(sampleWeibull(R, C, beta, mult));
+  const dTsHot = dTs + 20;
+  const AFhot = coffinMansonAF(dTu, dTsHot, q);
+  const hotWarn = dTsHot > 150;
+  const rows = [
+    { name: 'A · 基准', tag: '<span class="tag base">推荐起点</span>', n: nBase, t: fmt(testCycles, 0) + ' 次', stress: 'ΔT=' + dTs + '°C', warn: overLimit },
+    { name: 'B · 延长循环换样品', tag: '', n: nLong, t: fmt(Math.round(testCycles * mult), 0) + ' 次', stress: 'ΔT=' + dTs + '°C', warn: false },
+    { name: 'C · 加大摆幅换循环数', tag: hotWarn ? '<span class="tag warn">超温风险</span>' : '', n: nBase, t: fmt(Math.max(1, Math.round(fieldCycles / AFhot)), 0) + ' 次', stress: 'ΔT=' + dTsHot + '°C', warn: hotWarn },
+  ];
+  $('matrixHead').innerHTML = '<th>方案</th><th>样品数</th><th>试验循环次数</th><th>温度摆幅</th><th>置信度</th>';
+  $('matrixNote').innerHTML = '延长循环次数 → 可减少样品数；加大温度摆幅 → 可减少循环次数，但极大摆幅会带来超温或结构损伤风险（<span style="color:var(--amber)">琥珀色</span>）。';
+  renderMatrixRows(rows, $('conf').value + '%');
+}
+
+// ---- Peck ----
+function computePeck(life, fieldHours, R, C, beta, nBase) {
+  const Ea = +$('pk_ea').value, n = +$('pk_n').value;
+  const TuC = +$('pk_tu').value, TsC = +$('pk_ts').value;
+  const RHu = +$('pk_rhu').value, RHs = +$('pk_rhs').value;
+  const AF = peckAF(Ea, n, TuC, TsC, RHu, RHs);
+  const tDemo = fieldHours / AF;
+  const mult = +$('mult').value;
+
+  const overLimit = TsC > 130;
+  $('peckTempHint').innerHTML = overLimit
+    ? '<span style="color:var(--amber)">⚠ 试验温度超过 130°C，需注意封装开裂（Popcorn）风险，请参考 IPC/JEDEC 预烘要求。</span>'
+    : 'HAST 标准试验条件：85°C / 85%RH（≤130°C 以免封装开裂）。';
+
+  setReadouts(AF, fmt(tDemo, 0), ' h', nBase, fmt(fieldHours, 0), ' h',
+    '等效试验时长（基准）', '现场寿命换算', overLimit);
+
+  $('conclusionText').innerHTML =
+    `取 <b>${nBase} 件</b>样品，在 <b>${TsC}°C / ${RHs}%RH</b> 条件下运行 <b>${fmt(tDemo, 0)} 小时</b>，` +
+    `若全程<b>零失效</b>，即可在 <b>${$('conf').value}% 置信度</b>下证明：` +
+    `产品在 ${TuC}°C / ${RHu}%RH 使用环境、` +
+    `<b>${lifeUnit === 'year' ? life + ' 年' : fmt(fieldHours, 0) + ' 小时'}</b> 寿命点的可靠度 <b>≥ ${$('rel').value}%</b>。`;
+
+  $('whyText').innerHTML =
+    `加速因子 AF=${AF >= 10 ? fmt(AF, 0) : fmt(AF, 1)} 来自 Peck 模型：AF=(RH_s/RH_u)^n × exp(Ea/k×(1/Tu−1/Ts))，` +
+    `参数：Ea=${Ea} eV，n=${n}，${TuC}°C/${RHu}%RH → ${TsC}°C/${RHs}%RH；` +
+    `样本量 ${nBase} 件由成功运行定理得出。`;
+
+  const nLong = Math.ceil(sampleWeibull(R, C, beta, mult));
+  const TsHot = TsC + 10;
+  const AFhot = peckAF(Ea, n, TuC, TsHot, RHu, RHs);
+  const hotWarn = TsHot > 130;
+  const rows = [
+    { name: 'A · 基准', tag: '<span class="tag base">推荐起点</span>', n: nBase, t: fmt(tDemo, 0) + ' h', stress: TsC + '°C/' + RHs + '%', warn: overLimit },
+    { name: 'B · 延长时间换样品', tag: '', n: nLong, t: fmt(tDemo * mult, 0) + ' h', stress: TsC + '°C/' + RHs + '%', warn: false },
+    { name: 'C · 升温换时间', tag: hotWarn ? '<span class="tag warn">超温风险</span>' : '', n: nBase, t: fmt(fieldHours / AFhot, 0) + ' h', stress: TsHot + '°C/' + RHs + '%', warn: hotWarn },
+  ];
+  $('matrixHead').innerHTML = '<th>方案</th><th>样品数</th><th>试验时长</th><th>试验条件</th><th>置信度</th>';
+  $('matrixNote').innerHTML = '延长时间 → 减少样品；升高温度（相同湿度）→ 缩短时间；超过 130°C 有封装开裂风险（<span style="color:var(--amber)">琥珀色</span>）。';
+  renderMatrixRows(rows, $('conf').value + '%');
+}
+
+// ---- shared helpers ----
+function setReadouts(AF, demoVal, demoUnit, nBase, fieldVal, fieldUnit, demoLabel, fieldLabel, warn) {
+  $('roAF').textContent = AF >= 10 ? fmt(AF, 0) : fmt(AF, 1);
+  $('roDemo').innerHTML = demoVal + '<small>' + demoUnit + '</small>';
+  $('roN').innerHTML = nBase + '<small> 件</small>';
+  $('roField').innerHTML = fieldVal + '<small>' + fieldUnit + '</small>';
+  $('roDemoK').textContent = demoLabel;
+  $('roFieldK').textContent = fieldLabel;
+  $('roDemoCell').classList.toggle('warn', warn);
+}
+
+function renderMatrixRows(rows, confPct) {
+  $('multVal').textContent = '×' + (+$('mult').value).toFixed(1);
+  $('matrixBody').innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.name}${r.tag}</td>
+      <td class="hl">${r.n}</td>
+      <td>${r.t}</td>
+      <td style="${r.warn ? 'color:var(--amber)' : ''}">${r.stress}</td>
+      <td>${confPct}</td>
+    </tr>`).join('');
+}
+
+// ---- email capture via Formspree ----
+// 步骤：1) 去 formspree.io 创建免费表单  2) 把下面的 FORMSPREE_FORM_ID 替换为你的表单 ID（如 xpwzgkab）
+const FORMSPREE_FORM_ID = 'FORMSPREE_FORM_ID';
+
+async function captureEmail() {
+  const v = $('emailHook').value.trim();
+  if (!v || !v.includes('@')) { $('emailHook').style.borderColor = 'var(--amber)'; return; }
+
+  const btn = $('emailBtn');
+  btn.textContent = '发送中…';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(`https://formspree.io/f/${FORMSPREE_FORM_ID}`, {
+      method: 'POST',
+      body: JSON.stringify({ email: v }),
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    });
+    if (!res.ok) throw new Error('server');
+    $('emailHook').value = '';
+    $('emailHook').placeholder = '已记录，感谢！上线即通知你';
+    $('emailHook').style.borderColor = 'var(--signal)';
+    btn.textContent = '已通知 ✓';
+  } catch {
+    btn.textContent = '重试';
+    btn.disabled = false;
+    $('emailHook').style.borderColor = 'var(--amber)';
+  }
+}
+
+// ---- event bindings ----
+['ea','tuse','tstress','life','rel','conf','beta',
+ 'cm_dtu','cm_dts','cm_q','cm_cpd',
+ 'pk_tu','pk_ts','pk_rhu','pk_rhs','pk_ea','pk_n']
+  .forEach(id => $(id).addEventListener('input', compute));
+
+$('mult').addEventListener('input', compute);
+
+$('lifeUnit').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+  $('lifeUnit').querySelectorAll('button').forEach(x => x.classList.remove('on'));
+  b.classList.add('on');
+  lifeUnit = b.dataset.u;
+  compute();
+}));
+
+// ---- self-test (math integrity guard) ----
+(function selfTest() {
+  const t1 = arrheniusAF(0.7, 40, 125);               // ~254.1
+  const t2 = Math.ceil(sampleSizeZeroFail(0.95, 0.9)); // 45
+  const t3 = Math.ceil(sampleWeibull(0.95, 0.9, 2, 2));// 12
+  const t4 = coffinMansonAF(20, 63, 2.0);              // ~9.92
+  const t5 = peckAF(0.9, 2.7, 25, 85, 50, 85);         // ~1485
+
+  const ok = Math.abs(t1 - 254.1) < 1
+          && t2 === 45
+          && t3 === 12
+          && Math.abs(t4 - 9.9) < 0.5
+          && Math.abs(t5 - 1485) < 20;
+
+  console.log(
+    `%c[self-test] Arrhenius=${t1.toFixed(1)} n=${t2} nWeibull(×2)=${t3} CM=${t4.toFixed(2)} Peck=${Math.round(t5)} → ${ok ? 'PASS ✓' : 'FAIL ✗'}`,
+    `color:${ok ? '#37e1b0' : '#f5a623'}`
+  );
+})();
+
+compute();
+</script>
+</body>
+</html>
