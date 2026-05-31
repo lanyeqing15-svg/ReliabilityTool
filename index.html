@@ -7,7 +7,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<script defer src="https://cloud.umami.is/script.js" data-website-id="5806afe4-036d-4394-be52-da099f4962c3"></script>
 <style>
 :root{--radius:10px;--ease:cubic-bezier(.4,0,.2,1)}
 [data-theme="dark"]{
@@ -291,7 +290,7 @@ footer .disclaimer{border:1px solid var(--line);border-radius:8px;padding:16px 1
 <!-- ======== HOOK ======== -->
 <div class="hook full">
   <div><div class="t">想让系统根据<b>整个产品</b>自动生成完整试验方案？</div><div class="e">输入产品类型与目标市场，自动推荐试验项目清单、适用标准与每项的理由。</div></div>
-  <div class="hook-form"><input type="email" id="emailHook" placeholder="留个邮箱，上线通知你"><button onclick="captureEmail()">通知我</button></div>
+  <div class="hook-form"><a href="https://wj.qq.com/s2/26868724/a33e/" target="_blank" rel="noopener" style="background:var(--signal);color:#0d0f12;border:none;border-radius:7px;padding:10px 22px;font-weight:600;cursor:pointer;font-family:inherit;font-size:14px;text-decoration:none;display:inline-block;transition:.15s">留邮箱，上线通知我 →</a></div>
 </div>
 
 </main>
@@ -331,7 +330,6 @@ $('tabBar').addEventListener('click',e=>{
   const btn=e.target.closest('.tab-btn');
   if(!btn)return;
   activeTab=btn.dataset.tab;
-  window.umami?.track('model-tab',{model:activeTab});
   document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('on'));
   btn.classList.add('on');
   document.querySelectorAll('.pane').forEach(x=>x.classList.remove('on'));
@@ -448,7 +446,7 @@ $('a_lifeUnit').querySelectorAll('button').forEach(b=>b.addEventListener('click'
 ['c_dtuse','c_dtstress','c_m','c_cpd','c_life','c_rel','c_conf','c_beta','c_mult','c_ddelta'].forEach(id=>$(id).addEventListener('input',computeC));
 ['p_tuse','p_tstress','p_rhuse','p_rhstress','p_ea','p_n','p_life','p_rel','p_conf','p_beta'].forEach(id=>$(id).addEventListener('input',computeP));
 
-function captureEmail(){const v=$('emailHook').value.trim();if(!v||!v.includes('@')){$('emailHook').style.borderColor='var(--amber)';return;}console.log('[email]',v);$('emailHook').value='';$('emailHook').placeholder='已记录，感谢！';$('emailHook').style.borderColor='var(--signal)';}
+
 
 // Self-test
 (function(){
